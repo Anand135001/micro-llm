@@ -21,11 +21,19 @@ def main() -> None:
         BPE(unk_token="[UNK]")
     )
 
-    tokenizer.pre_tokenizer = ByteLevel()
+    # Byte-level tokenizer.
+    # add_prefix_space=False prevents an artificial leading space.
+    tokenizer.pre_tokenizer = ByteLevel(add_prefix_space=False)
     tokenizer.decoder = ByteLevelDecoder()
 
     trainer = BpeTrainer(
         vocab_size=VOCAB_SIZE,
+
+        # IMPORTANT:
+        # Include the complete byte alphabet so normal characters,
+        # numbers and punctuation do not become [UNK].
+        initial_alphabet=ByteLevel.alphabet(),
+
         special_tokens=[
             "[PAD]",
             "[UNK]",
@@ -45,21 +53,6 @@ def main() -> None:
     print(f"Requested vocabulary size: {VOCAB_SIZE}")
     print(f"Actual vocabulary size:    {tokenizer.get_vocab_size()}")
     print(f"Saved to:                   {OUTPUT_FILE}")
-
-    text = "The Earth revolves around the Sun."
-    encoded = tokenizer.encode(text)
-
-    print("\nTest text:")
-    print(text)
-
-    print("\nToken IDs:")
-    print(encoded.ids)
-
-    print("\nTokens:")
-    print(encoded.tokens)
-
-    print("\nDecoded:")
-    print(tokenizer.decode(encoded.ids))
 
 
 if __name__ == "__main__":
