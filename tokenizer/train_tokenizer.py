@@ -9,7 +9,7 @@ from tokenizers.trainers import BpeTrainer
 
 VOCAB_SIZE = 16_384
 
-INPUT_FILE = Path("data/tokenizer_sample.txt")
+INPUT_FILE = Path("data/tokenizer_corpus.txt")
 OUTPUT_DIR = Path("tokenizer")
 OUTPUT_FILE = OUTPUT_DIR / "tokenizer.json"
 
