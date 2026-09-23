@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from model.rope import RotaryEmbedding
 
 
 class GQA(nn.Module):
@@ -16,14 +17,17 @@ class GQA(nn.Module):
             raise ValueError("d_model must be divisible by num_q_heads.")
 
         if num_q_heads % num_kv_heads != 0:
-            raise ValueError(
-                "num_q_heads must be divisible by num_kv_heads."
-            )
+            raise ValueError("num_q_heads must be divisible by num_kv_heads.")
 
         self.d_model = d_model
         self.num_q_heads = num_q_heads
         self.num_kv_heads = num_kv_heads
         self.head_dim = d_model // num_q_heads
+
+        self.rope = RotaryEmbedding(
+            head_dim=self.head_dim,
+            max_seq_len=1024,
+        )
 
         self.q_proj = nn.Linear(
             d_model,
@@ -77,6 +81,8 @@ class GQA(nn.Module):
             self.head_dim,
         ).transpose(1, 2)
 
+        q, k = self.rope(q, k)
+
         # Repeat K/V heads so that:
         # 2 KV heads → 8 Q heads
         repeat_factor = self.num_q_heads // self.num_kv_heads
@@ -84,19 +90,10 @@ class GQA(nn.Module):
         k = k.repeat_interleave(repeat_factor, dim=1)
         v = v.repeat_interleave(repeat_factor, dim=1)
 
-        attention_output = F.scaled_dot_product_attention(
-            q,
-            k,
-            v,
-            is_causal=True,
-        )
+        attention_output = F.scaled_dot_product_attention(q, k, v, is_causal=True,)
 
         attention_output = attention_output.transpose(1, 2).contiguous()
 
-        attention_output = attention_output.view(
-            B,
-            T,
-            self.d_model,
-        )
+        attention_output = attention_output.view(B, T, self.d_model,)
 
         return self.o_proj(attention_output)
