@@ -3,7 +3,7 @@ import torch
 from model.norm import RMSNorm
 from model.swiglu import SwiGLU
 from model.attention import GQA
-
+from model.rope import RotaryEmbedding
 
 def main() -> None:
     batch_size = 2
@@ -60,6 +60,24 @@ def main() -> None:
 
     assert attention_out.shape == x.shape
 
+
+    # ======= RoPE =========
+    
+    rope = RotaryEmbedding(
+        head_dim=64,
+        max_seq_len=1024,
+    )
+
+    q = torch.randn(2, 8, 32, 64)
+    k = torch.randn(2, 2, 32, 64)
+
+    q_rope, k_rope = rope(q, k)
+
+    print("RoPE Q output:", q_rope.shape)
+    print("RoPE K output:", k_rope.shape)
+
+    assert q_rope.shape == q.shape
+    assert k_rope.shape == k.shape
 
     print("\nAll component tests passed.")
 
