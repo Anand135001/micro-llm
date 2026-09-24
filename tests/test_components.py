@@ -4,6 +4,7 @@ from model.norm import RMSNorm
 from model.swiglu import SwiGLU
 from model.attention import GQA
 from model.rope import RotaryEmbedding
+from model.transformer_block import TransformerBlock
 
 def main() -> None:
     batch_size = 2
@@ -79,8 +80,22 @@ def main() -> None:
     assert q_rope.shape == q.shape
     assert k_rope.shape == k.shape
 
-    print("\nAll component tests passed.")
 
+    # ======= Transformer Block ========
+    block = TransformerBlock(
+        d_model=512,
+        num_q_heads=8,
+        num_kv_heads=2,
+        d_ff=1664,
+        max_seq_len=1024,
+    )
+
+    block_out = block(x)
+    print("Transformer block output:", block_out.shape)
+    assert block_out.shape == x.shape
+
+
+    print("\nAll component tests passed.")
 
 if __name__ == "__main__":
     main()

@@ -10,6 +10,7 @@ class GQA(nn.Module):
         d_model: int = 512,
         num_q_heads: int = 8,
         num_kv_heads: int = 2,
+        max_seq_len: int = 1024,
     ) -> None:
         super().__init__()
 
@@ -26,7 +27,7 @@ class GQA(nn.Module):
 
         self.rope = RotaryEmbedding(
             head_dim=self.head_dim,
-            max_seq_len=1024,
+            max_seq_len=max_seq_len,
         )
 
         self.q_proj = nn.Linear(
