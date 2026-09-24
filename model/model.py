@@ -39,6 +39,20 @@ class MicroLLM(nn.Module):
         )
 
         self.final_norm = RMSNorm(d_model)
+        self._init_weights()
+
+
+    def _init_weights(self) -> None:
+        for module in self.modules():
+            if isinstance(module, nn.Linear):
+                nn.init.normal_(module.weight, mean=0.0, std=0.02)
+    
+            elif isinstance(module, nn.Embedding):
+                nn.init.normal_(module.weight, mean=0.0, std=0.02)
+    
+            elif isinstance(module, RMSNorm):
+                nn.init.ones_(module.weight)
+
 
     def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
         """
