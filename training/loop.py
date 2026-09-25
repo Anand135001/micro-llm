@@ -10,6 +10,7 @@ from training.evaluate import evaluate
 def train(
     model,
     optimizer,
+    scheduler,
     train_loader,
     val_loader,
     device,
@@ -27,7 +28,6 @@ def train(
     data_iter = iter(train_loader)
 
     for step in range(start_step + 1, max_steps + 1):
-
         try:
             batch = next(data_iter)
         except StopIteration:
@@ -57,22 +57,25 @@ def train(
 
         optimizer.step()
 
+        # Update learning rate for the next step
+        scheduler.step()
+        
         elapsed = time.time() - start_time
 
         if step % log_every == 0 or step == start_step + 1:
             tokens = input_ids.numel()
             tokens_per_sec = tokens / elapsed
-
+            lr = optimizer.param_groups[0]["lr"]
+            
             print(
                 f"step={step:6d} "
                 f"loss={loss.item():.4f} "
                 f"grad_norm={grad_norm.item():.4f} "
+                f"lr={lr:.8f}"
                 f"tokens/s={tokens_per_sec:.1f}"
             )
 
-        # -------------------------
         # Validation
-        # -------------------------
         if step % eval_every == 0:
             val_loss = evaluate(
                 model=model,
@@ -92,7 +95,9 @@ def train(
                 save_checkpoint(
                     model=model,
                     optimizer=optimizer,
+                    scheduler=scheduler,
                     step=step,
+                    best_val_loss=best_val_loss,
                     path=Path(checkpoint_dir) / "best.pt",
                 )
 
@@ -101,14 +106,14 @@ def train(
                     f"{best_val_loss:.4f}"
                 )
 
-        # -------------------------
         # Regular checkpoint
-        # -------------------------
         if step % save_every == 0:
             save_checkpoint(
                 model=model,
                 optimizer=optimizer,
+                scheduler=scheduler,
                 step=step,
+                best_val_loss=best_val_loss,
                 path=Path(checkpoint_dir) / f"step_{step}.pt",
             )
 

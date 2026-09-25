@@ -3,6 +3,7 @@ import torch
 from model.model import MicroLLM
 from training.dataloader import create_dataloader
 from training.optimizer import create_optimizer
+from training.scheduler import create_scheduler
 from training.loop import train
 from configs.train_config import TrainConfig
 
@@ -14,6 +15,11 @@ def main():
     model = MicroLLM().to(device)
     config = TrainConfig()
     optimizer = create_optimizer(model, config)
+
+    scheduler = create_scheduler(
+        optimizer,
+        config,
+    )
 
     train_loader = create_dataloader(
         batch_size=2,
@@ -28,6 +34,7 @@ def main():
     train(
         model=model,
         optimizer=optimizer,
+        scheduler=scheduler,
         train_loader=train_loader,
         val_loader=val_loader,
         device=device,
