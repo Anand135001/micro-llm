@@ -20,14 +20,21 @@ def main():
         validation=False,
     )
 
+    val_loader = create_dataloader(
+        batch_size=2,
+        validation=True,
+    )
+
     train(
         model=model,
         optimizer=optimizer,
         train_loader=train_loader,
+        val_loader=val_loader,
         device=device,
-        max_steps=3,
+        max_steps=4,
         log_every=1,
-        save_every=2,
+        eval_every=2,
+        save_every=4,
         checkpoint_dir="checkpoints",
         max_grad_norm=config.max_grad_norm,
     )
