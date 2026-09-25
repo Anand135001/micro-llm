@@ -27,6 +27,8 @@ def main():
         device=device,
         max_steps=3,
         log_every=1,
+        save_every=2,
+        checkpoint_dir="checkpoints",
         max_grad_norm=config.max_grad_norm,
     )
 
