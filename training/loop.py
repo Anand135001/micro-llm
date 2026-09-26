@@ -3,8 +3,10 @@ from pathlib import Path
 
 import torch
 
+from training.amp import create_amp_config
 from training.checkpoint import save_checkpoint
 from training.evaluate import evaluate
+from training.trainer import train_step
 
 
 def train(
@@ -25,57 +27,54 @@ def train(
 ):
     model.train()
 
+    amp_config = create_amp_config(device)
+
     data_iter = iter(train_loader)
 
     for step in range(start_step + 1, max_steps + 1):
+
         try:
             batch = next(data_iter)
         except StopIteration:
             data_iter = iter(train_loader)
             batch = next(data_iter)
 
-        input_ids = batch["input_ids"].to(device)
-        labels = batch["labels"].to(device)
-
-        optimizer.zero_grad(set_to_none=True)
+        # Record LR before this optimizer update.
+        current_lr = optimizer.param_groups[0]["lr"]
 
         start_time = time.time()
 
-        logits = model(input_ids)
-
-        loss = torch.nn.functional.cross_entropy(
-            logits.reshape(-1, model.vocab_size),
-            labels.reshape(-1),
+        loss, grad_norm = train_step(
+            model=model,
+            optimizer=optimizer,
+            batch=batch,
+            device=device,
+            max_grad_norm=max_grad_norm,
+            amp_enabled=amp_config["enabled"],
+            amp_dtype=amp_config["dtype"],
+            scaler=amp_config["scaler"],
         )
 
-        loss.backward()
-
-        grad_norm = torch.nn.utils.clip_grad_norm_(
-            model.parameters(),
-            max_grad_norm,
-        )
-
-        optimizer.step()
-
-        # Update learning rate for the next step
+        # Scheduler changes LR for the NEXT step.
         scheduler.step()
-        
+
         elapsed = time.time() - start_time
 
         if step % log_every == 0 or step == start_step + 1:
-            tokens = input_ids.numel()
+            tokens = batch["input_ids"].numel()
             tokens_per_sec = tokens / elapsed
-            lr = optimizer.param_groups[0]["lr"]
-            
+
             print(
                 f"step={step:6d} "
-                f"loss={loss.item():.4f} "
-                f"grad_norm={grad_norm.item():.4f} "
-                f"lr={lr:.8f}"
+                f"loss={loss:.4f} "
+                f"grad_norm={grad_norm:.4f} "
+                f"lr={current_lr:.8f} "
                 f"tokens/s={tokens_per_sec:.1f}"
             )
 
+        # -------------------------
         # Validation
+        # -------------------------
         if step % eval_every == 0:
             val_loss = evaluate(
                 model=model,
@@ -106,7 +105,9 @@ def train(
                     f"{best_val_loss:.4f}"
                 )
 
+        # -------------------------
         # Regular checkpoint
+        # -------------------------
         if step % save_every == 0:
             save_checkpoint(
                 model=model,
