@@ -3,12 +3,11 @@ import torch
 from training.loss import causal_lm_loss
 
 
-def train_step(
+def train_micro_step(
     model,
-    optimizer,
     batch,
     device,
-    max_grad_norm=1.0,
+    accumulation_steps=1,
     amp_enabled=False,
     amp_dtype=torch.float32,
     scaler=None,
@@ -16,9 +15,6 @@ def train_step(
     input_ids = batch["input_ids"].to(device)
     labels = batch["labels"].to(device)
 
-    optimizer.zero_grad(set_to_none=True)
-
-    # Mixed-precision forward pass
     with torch.autocast(
         device_type=device.type,
         dtype=amp_dtype,
@@ -27,29 +23,13 @@ def train_step(
         logits = model(input_ids)
         loss = causal_lm_loss(logits, labels)
 
-    # Backward pass
+        # Scale loss so accumulated gradient
+        # has the correct magnitude.
+        scaled_loss = loss / accumulation_steps
+
     if scaler is not None:
-        scaler.scale(loss).backward()
-
-        # Unscale before gradient clipping
-        scaler.unscale_(optimizer)
-
-        grad_norm = torch.nn.utils.clip_grad_norm_(
-            model.parameters(),
-            max_grad_norm,
-        )
-
-        scaler.step(optimizer)
-        scaler.update()
-
+        scaler.scale(scaled_loss).backward()
     else:
-        loss.backward()
+        scaled_loss.backward()
 
-        grad_norm = torch.nn.utils.clip_grad_norm_(
-            model.parameters(),
-            max_grad_norm,
-        )
-
-        optimizer.step()
-
-    return loss.item(), grad_norm.item()
+    return loss.item()

@@ -6,7 +6,7 @@ import torch
 from training.amp import create_amp_config
 from training.checkpoint import save_checkpoint
 from training.evaluate import evaluate
-from training.trainer import train_step
+from training.trainer import train_micro_step
 
 
 def train(
@@ -17,6 +17,7 @@ def train(
     val_loader,
     device,
     max_steps,
+    gradient_accumulation_steps=1,
     log_every=10,
     eval_every=100,
     save_every=1000,
@@ -31,51 +32,83 @@ def train(
 
     data_iter = iter(train_loader)
 
+    optimizer.zero_grad(set_to_none=True)
+
     for step in range(start_step + 1, max_steps + 1):
 
-        try:
-            batch = next(data_iter)
-        except StopIteration:
-            data_iter = iter(train_loader)
-            batch = next(data_iter)
-
-        # Record LR before this optimizer update.
-        current_lr = optimizer.param_groups[0]["lr"]
-
         start_time = time.time()
+        total_loss = 0.0
 
-        loss, grad_norm = train_step(
-            model=model,
-            optimizer=optimizer,
-            batch=batch,
-            device=device,
-            max_grad_norm=max_grad_norm,
-            amp_enabled=amp_config["enabled"],
-            amp_dtype=amp_config["dtype"],
-            scaler=amp_config["scaler"],
+        # Accumulate gradients
+        for _ in range(gradient_accumulation_steps):
+
+            try:
+                batch = next(data_iter)
+
+            except StopIteration:
+                data_iter = iter(train_loader)
+                batch = next(data_iter)
+
+            loss = train_micro_step(
+                model=model,
+                batch=batch,
+                device=device,
+                accumulation_steps=gradient_accumulation_steps,
+                amp_enabled=amp_config["enabled"],
+                amp_dtype=amp_config["dtype"],
+                scaler=amp_config["scaler"],
+            )
+
+            total_loss += loss
+
+        # Unscale before clipping
+        if amp_config["scaler"] is not None:
+            amp_config["scaler"].unscale_(optimizer)
+
+        grad_norm = torch.nn.utils.clip_grad_norm_(
+            model.parameters(),
+            max_grad_norm,
         )
 
-        # Scheduler changes LR for the NEXT step.
+        # Optimizer update
+        if amp_config["scaler"] is not None:
+            amp_config["scaler"].step(optimizer)
+            amp_config["scaler"].update()
+        else:
+            optimizer.step()
+
+        optimizer.zero_grad(set_to_none=True)
+
+        # Scheduler advances once per
+        # optimizer update.
         scheduler.step()
 
         elapsed = time.time() - start_time
 
         if step % log_every == 0 or step == start_step + 1:
-            tokens = batch["input_ids"].numel()
-            tokens_per_sec = tokens / elapsed
+
+            total_tokens = (
+                batch["input_ids"].numel()
+                * gradient_accumulation_steps
+            )
+
+            tokens_per_sec = total_tokens / elapsed
+
+            current_lr = optimizer.param_groups[0]["lr"]
+
+            average_loss = (total_loss / gradient_accumulation_steps)
 
             print(
                 f"step={step:6d} "
-                f"loss={loss:.4f} "
-                f"grad_norm={grad_norm:.4f} "
+                f"loss={average_loss:.4f} "
+                f"grad_norm={grad_norm.item():.4f} "
                 f"lr={current_lr:.8f} "
                 f"tokens/s={tokens_per_sec:.1f}"
             )
 
-        # -------------------------
         # Validation
-        # -------------------------
         if step % eval_every == 0:
+
             val_loss = evaluate(
                 model=model,
                 val_loader=val_loader,
@@ -89,6 +122,7 @@ def train(
             )
 
             if val_loss < best_val_loss:
+
                 best_val_loss = val_loss
 
                 save_checkpoint(
@@ -105,17 +139,19 @@ def train(
                     f"{best_val_loss:.4f}"
                 )
 
-        # -------------------------
         # Regular checkpoint
-        # -------------------------
         if step % save_every == 0:
+
             save_checkpoint(
                 model=model,
                 optimizer=optimizer,
                 scheduler=scheduler,
                 step=step,
                 best_val_loss=best_val_loss,
-                path=Path(checkpoint_dir) / f"step_{step}.pt",
+                path=(
+                    Path(checkpoint_dir)
+                    / f"step_{step}.pt"
+                ),
             )
 
     return best_val_loss
