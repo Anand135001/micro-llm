@@ -16,6 +16,8 @@ class MicroLLM(nn.Module):
         num_kv_heads: int = 2,
         d_ff: int = 1024,
         max_seq_len: int = 1024,
+        attention_type = "gpa",
+        mla_rank: int = 24,
     ) -> None:
         super().__init__()
 
@@ -33,6 +35,8 @@ class MicroLLM(nn.Module):
                     num_kv_heads=num_kv_heads,
                     d_ff=d_ff,
                     max_seq_len=max_seq_len,
+                    attention_type=attention_type,
+                    mla_rank=mla_rank,
                 )
                 for _ in range(num_layers)
             ]
