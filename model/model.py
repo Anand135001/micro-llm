@@ -10,11 +10,11 @@ class MicroLLM(nn.Module):
     def __init__(
         self,
         vocab_size: int = 16384,
-        d_model: int = 512,
-        num_layers: int = 12,
-        num_q_heads: int = 8,
+        d_model: int = 384,
+        num_layers: int = 27,
+        num_q_heads: int = 6,
         num_kv_heads: int = 2,
-        d_ff: int = 1664,
+        d_ff: int = 1024,
         max_seq_len: int = 1024,
     ) -> None:
         super().__init__()
