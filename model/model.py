@@ -16,7 +16,7 @@ class MicroLLM(nn.Module):
         num_kv_heads: int = 2,
         d_ff: int = 1024,
         max_seq_len: int = 1024,
-        attention_type = "gpa",
+        attention_type = "gqa",
         mla_rank: int = 24,
     ) -> None:
         super().__init__()
