@@ -8,7 +8,7 @@ def main():
 
     model = MicroLLM(
         attention_type="mla",
-        mla_rank=24,
+        mla_rank=18,
     ).to(device)
 
     print(
