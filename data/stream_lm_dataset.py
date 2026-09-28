@@ -1,16 +1,45 @@
+import os
+from pathlib import Path
 from typing import Iterator
 
 import torch
-from datasets import load_dataset
 from torch.utils.data import IterableDataset
-
 from tokenizers import Tokenizer
+from datasets import load_dataset, DownloadConfig
+
+
+# -------------------------
+# Hugging Face cache
+# -------------------------
+PROJECT_CACHE = (
+    Path(__file__).resolve().parent / ".hf_cache"
+)
+os.environ.setdefault(
+    "HF_HOME",
+    str(PROJECT_CACHE),
+)
+# Give slow/unstable connections more time.
+os.environ.setdefault(
+    "HF_HUB_DOWNLOAD_TIMEOUT",
+    "120",
+)
+os.environ.setdefault(
+    "HF_HUB_ETAG_TIMEOUT",
+    "30",
+)
 
 
 DATASET_NAME = "HuggingFaceFW/fineweb-edu"
 TOKENIZER_PATH = "tokenizer/tokenizer.json"
-
 SEQ_LEN = 1024
+
+# Local FineWeb-Edu shards
+LOCAL_FINEWEB_DIR = (
+    Path(__file__).resolve().parent / "fineweb"
+)
+
+# Strict mode: never fall back to Hugging Face streaming
+LOCAL_ONLY = True
 
 
 class StreamingLMDataset(IterableDataset):
@@ -34,11 +63,44 @@ class StreamingLMDataset(IterableDataset):
         self.eos_id = eos_id
 
     def _documents(self) -> Iterator[str]:
-        dataset = load_dataset(
-            DATASET_NAME,
-            split=self.split,
-            streaming=True,
+        download_config = DownloadConfig(
+            cache_dir=str(PROJECT_CACHE),
+            max_retries=5,
         )
+
+        parquet_files = sorted(
+            LOCAL_FINEWEB_DIR.glob(
+                "data/CC-MAIN-2013-20/*.parquet"
+            )
+        )
+
+        if not parquet_files:
+            if LOCAL_ONLY:
+                raise FileNotFoundError(
+                    "No local FineWeb-Edu parquet shards found. "
+                    "Download the required shards before training."
+                )
+
+            print("No local FineWeb-Edu shards found.")
+            print("Using Hugging Face streaming.")
+
+            dataset = load_dataset(
+                DATASET_NAME,
+                split=self.split,
+                streaming=True,
+                download_config=download_config,
+            )
+        else:
+            print(
+                f"Using {len(parquet_files)} local FineWeb-Edu shard(s)."
+            )
+
+            dataset = load_dataset(
+                "parquet",
+                data_files=[str(path) for path in parquet_files],
+                split="train",
+                streaming=True,
+            )
 
         for index, example in enumerate(dataset):
             # Deterministic 1% validation split.
