@@ -1,0 +1,17 @@
+# Core
+torch
+torchaudio
+torchvision
+datasets
+huggingface_hub
+tokenizers
+numpy
+pandas
+Pillow
+tqdm
+PyYAML
+requests
+accelerate
+
+safetensors
+einops
