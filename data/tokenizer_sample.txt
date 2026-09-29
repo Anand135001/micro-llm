@@ -1,0 +1,14 @@
+Language models learn patterns from text.
+A transformer predicts the next token given previous tokens.
+
+Machine learning is a branch of computer science.
+Neural networks contain parameters that are adjusted during training.
+
+The Earth revolves around the Sun.
+Water freezes at zero degrees Celsius under standard atmospheric pressure.
+
+Mathematics provides tools for reasoning about numbers, structures, and relationships.
+Programming allows humans to give precise instructions to computers.
+
+A good language model needs high quality training data.
+The model should learn grammar, facts, reasoning patterns, and useful representations.
