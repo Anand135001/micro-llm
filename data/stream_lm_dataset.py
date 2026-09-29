@@ -33,10 +33,16 @@ DATASET_NAME = "HuggingFaceFW/fineweb-edu"
 TOKENIZER_PATH = "tokenizer/tokenizer.json"
 SEQ_LEN = 1024
 
-# Local FineWeb-Edu shards
-LOCAL_FINEWEB_DIR = (
-    Path(__file__).resolve().parent / "fineweb"
+
+FINEWEB_DIR = Path(
+    os.environ.get(
+        "FINEWEB_DIR",
+        Path(__file__).resolve().parent / "fineweb",
+    )
 )
+
+# Local FineWeb-Edu shards
+LOCAL_FINEWEB_DIR = FINEWEB_DIR
 
 # Strict mode: never fall back to Hugging Face streaming
 LOCAL_ONLY = True
