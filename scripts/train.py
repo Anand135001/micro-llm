@@ -11,6 +11,7 @@ from training.optimizer import create_optimizer
 from training.scheduler import create_scheduler
 from training.loop import train
 from training.token_budget import max_optimizer_steps
+from training.checkpoint import load_checkpoint
 
 
 def parse_args():
@@ -58,6 +59,12 @@ def parse_args():
         default="checkpoints_gqa",
     )
 
+    parser.add_argument(
+        "--resume-from",
+        type=str,
+        default=None,
+    )
+     
     return parser.parse_args()
 
 
@@ -168,6 +175,25 @@ def main():
     )
 
     # --------------------------------
+    # Resume checkpoint
+    # --------------------------------
+
+    start_step = 0
+    best_val_loss = float("inf")
+
+    if args.resume_from is not None:
+        start_step, best_val_loss, metadata = load_checkpoint(
+            model=model,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            path=args.resume_from,
+            device=device,
+        )
+
+        print("Resume metadata:", metadata)
+
+
+    # --------------------------------
     # Training
     # --------------------------------
 
@@ -186,6 +212,8 @@ def main():
         eval_every=args.eval_every,
         save_every=args.save_every,
         checkpoint_dir=args.checkpoint_dir,
+        start_step=start_step,
+        best_val_loss=best_val_loss,
         max_grad_norm=config.max_grad_norm,
     )
 
