@@ -150,7 +150,7 @@ def train(
                 best_val_loss=best_val_loss,
                 path=(
                     Path(checkpoint_dir)
-                    / f"step_{step}.pt"
+                    / "latest.pt"
                 ),
             )
 
