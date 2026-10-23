@@ -104,15 +104,21 @@ def main():
 
     config = TrainConfig()
 
-    optimizer = create_optimizer(
-        model,
-        config,
+    seq_len = 1023
+
+    steps = max_optimizer_steps(
+        max_training_tokens=args.max_training_tokens,
+        batch_size=args.batch_size,
+        seq_len=seq_len,
+        gradient_accumulation_steps=(
+            args.gradient_accumulation_steps
+        ),
     )
 
-    scheduler = create_scheduler(
-        optimizer,
-        config,
-    )
+    config.max_steps = steps
+
+    optimizer = create_optimizer(model, config)
+    scheduler = create_scheduler(optimizer, config)
 
     # --------------------------------
     # Data
@@ -131,17 +137,6 @@ def main():
     # --------------------------------
     # Token budget
     # --------------------------------
-
-    seq_len = 1023
-
-    steps = max_optimizer_steps(
-        max_training_tokens=args.max_training_tokens,
-        batch_size=args.batch_size,
-        seq_len=seq_len,
-        gradient_accumulation_steps=(
-            args.gradient_accumulation_steps
-        ),
-    )
 
     tokens_per_step = (
         args.batch_size

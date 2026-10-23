@@ -17,4 +17,5 @@ def create_dataloader(
         batch_size=batch_size,
         num_workers=0,
         pin_memory=False,
+        drop_last=not validation,
     )
